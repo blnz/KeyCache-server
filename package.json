@@ -1,0 +1,7 @@
+{
+  "name": "unifyID",
+  "dependencies": { 
+    "express": "*",
+    "sqlite3": "*"
+  }
+}
