@@ -1,5 +1,5 @@
 {
-  "name": "unifyID",
+  "name": "KeyCache",
   "dependencies": { 
     "express": "*",
     "sqlite3": "*"

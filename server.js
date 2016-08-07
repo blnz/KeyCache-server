@@ -1,10 +1,12 @@
-var sqlite3 = require('sqlite3').verbose();
-var express = require('express')
+const path = require('path')
+, sqlite3 = require('sqlite3').verbose()
+, express = require('express')
+, user = require('./src/user');
 
 var app = express()
 
 var privdb = function() {
-  var priv = new sqlite3.Database("./unifyID.db", function(err) {
+  var priv = new sqlite3.Database(path.join(__dirname, "data/KeyCache.db"), function(err) {
     if (err) {
       console.log(err);
     }
@@ -13,7 +15,6 @@ var privdb = function() {
 }
 
 var db = privdb();
-
 
 app.get('/', function(req, res){
   path = "index.html";
@@ -25,13 +26,11 @@ var isAuthenticatedUser = function(req, resp, next) {
   next();
 }
 
-app.get('/api/:user/:account', isAuthenticatedUser, function(req, res) {
-  // get a single account record
-
+app.get('/api/:user/:card', isAuthenticatedUser, function(req, res) {
+  // get a single card record
   
-  
-  var stmt = "SELECT account_id, user_id, version, data_blob from account where user_id = ? and account_id = ?";
-  db.get(stmt, req.params.user, req.params.account,  function(err, row) {
+  var stmt = "SELECT card_id, user_id, version, data_blob from card where user_id = ? and card_id = ?";
+  db.get(stmt, req.params.user, req.params.card,  function(err, row) {
 
     if (err) {
       console.log(err);
@@ -44,24 +43,24 @@ app.get('/api/:user/:account', isAuthenticatedUser, function(req, res) {
   
 });
 
-app.delete('/api/:user/:account/:version', isAuthenticatedUser, function(req, res) {
-  // delete an account record
-  var stmt = "DELETE from account wher user_id = ? and account_id = ? and version = ?";
+app.delete('/api/:user/:card/:version', isAuthenticatedUser, function(req, res) {
+  // delete an card record
+  var stmt = "DELETE from card wher user_id = ? and card_id = ? and version = ?";
 
   
 });
 
-app.put('/api/:user/:account', isAuthenticatedUser, function(req, res) {
-  // creates a new account record
+app.put('/api/:user/:card', isAuthenticatedUser, function(req, res) {
+  // creates a new card record
   
 });
 
-app.post('/api/:user/:account/:version', isAuthenticatedUser, function(req, res) {
-  // update an account record
+app.post('/api/:user/:card/:version', isAuthenticatedUser, function(req, res) {
+  // update an card record
 });
 
 app.get('/api/:user',  isAuthenticatedUser, function(req, res) {
-  // return a list of accounts for that user
+  // return a list of cards for that user
   
 });
 
