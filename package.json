@@ -1,7 +1,7 @@
 {
   "name": "KeyCache",
-  "dependencies": { 
+  "dependencies": {
     "express": "*",
-    "sqlite3": "*"
+    "pg-promise": "^5.3.2",
   }
 }

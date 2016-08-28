@@ -1,7 +1,8 @@
 const path = require('path')
 , sqlite3 = require('sqlite3').verbose()
 , express = require('express')
-, user = require('./src/user');
+, user = require('./src/user')
+, ssdb = require('./src/ssdb');
 
 var app = express()
 
@@ -55,11 +56,11 @@ app.put('/api/:user/:card', isAuthenticatedUser, function(req, res) {
   
 });
 
-app.post('/api/:user/:card/:version', isAuthenticatedUser, function(req, res) {
+app.post('/api/:user/cards/:card/:version', isAuthenticatedUser, function(req, res) {
   // update an card record
 });
 
-app.get('/api/:user',  isAuthenticatedUser, function(req, res) {
+app.get('/api/:user/cards',  isAuthenticatedUser, function(req, res) {
   // return a list of cards for that user
   
 });
@@ -67,7 +68,20 @@ app.get('/api/:user',  isAuthenticatedUser, function(req, res) {
 
 
 if (!module.parent) {
-  app.listen(8010);
+  const sample_userObj = {
+    username: "jimmy",
+    password: "secret password",
+    wrapped_master: "base64 String"
+  }
+
+  ssdb.registerUser(sample_userObj, (err, data) => {
+    if (err) {
+      console.log(err)
+    } else {
+      console.log("inserted", data)
+    }
+  });
+  app.listen(8000);
   console.log("Express server listening on port %d", 8000);
 }
 
