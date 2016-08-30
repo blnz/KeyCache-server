@@ -1,11 +1,20 @@
-// require('es6-promise').polyfill();
-// require('isomorphic-fetch')
-
 var fetch = require('node-fetch')
 
-const newUser = {"wrapped_master": { "iv": "ffdd010101bc", "wrapped": "zy85b358dbd740b2c6781zyzyzyz"}, "username":"xyz","secret":"xyz"}
+const newUser = {"wrapped_master": { "iv": "ffdd010101bc",
+                                     "wrapped": "zy85b358dbd740b2c6781zyzyzyz",
+                                     "salt": "0103b3..."},
+                 "username":"xyz",
+                 "secret":"xyzzy"}
 
-const userLogin = {"username":"xyz","secret":"xyz"}
+const userLogin = {"username":"xyz","secret":"xyzzy"}
+
+const changedSecret = {"wrapped_master": { "iv": "b1a201ffdd010101bc",
+                                           "wrapped": "Gh13zy85b358dbd740b2c6781zyz0010",
+                                           "salt": "eab20103b3...0123"},
+                       "secret":"notxyzzzy"}
+
+const changedLogin = {"username":"xyz","secret": "notxyzzzy"}
+
 
 var authtoken = undefined
 
@@ -30,6 +39,30 @@ var register = () => {
     }).then( (data) => {
       console.log("registered:", data);
       resolve( data )
+    })
+  })
+}
+  
+var changeSecret = (data) => {
+  return new Promise( (resolve, reject ) => {
+    const session = data
+    console.log("running changeSecret function with data", data)
+    fetch("http://127.0.0.1:8000/api/changeSecret?session=" + data.session, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(changedSecret)
+    }).then( (response) => {
+      console.log("changeSecret got response",  response.status)
+      if (response.status >= 400) {
+        throw new Error("Bad response from server");
+      }
+      return response.json();
+    }).then( (data) => {
+      console.log("changed secret:", data);
+      resolve( session )
     })
   })
 }
@@ -85,6 +118,9 @@ const logout = (data) => {
 console.log("starting test")
 register()
   .then(login)
+  .then(logout)
+  .then(login)
+  .then(changeSecret)
   .then(logout)
   .catch( (err) => console.log(err))
 

@@ -37,8 +37,8 @@ const isAuthenticatedUser = (req, resp, next) => {
 }
 
 // ensure the owner of the session token owns the resource
-const ifAuthorizedUser = (sessionToken, authorizedUser, cb) => {
-  if (authorizedUser === session.sessionUser(sessionToken)) {
+const ifAuthorizedUser = (authorizedUser, cb) => {
+  if (authorizedUser === req.session.user) {
     cb(null, true)
   } else {
     cb("not authorized", false)
@@ -74,6 +74,23 @@ app.post('/api/register', (req, resp) => {
                   }
                   resp.status(200).send(JSON.stringify(data))
                 })
+})
+
+// change the user's secret(s)
+app.post('/api/changeSecret', isAuthenticatedUser, (req, resp) => {
+
+  console.log("changeSecret:", req.body);
+  ssdb.changeUserSecret(req.session.user,
+                        req.body.secret,
+                        JSON.stringify(req.body.wrapped_master), (err, data) => {
+                          if (err) {
+                            console.log(err)
+                            resp.status(400).send("cannot change secret")
+                            return
+                          }
+                          resp.setHeader('Content-Type', 'application/json');
+                          resp.status(200).send(JSON.stringify('true'))
+                        })
 })
          
 app.post('/api/logout', isAuthenticatedUser, (req, resp) => {

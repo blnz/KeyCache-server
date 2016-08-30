@@ -120,9 +120,9 @@ exports.registerUser = (username, secret, wrapped_master, cb)  => {
 
 exports.changeUserSecret = (userID, secret, wrapped_master, cb)  => {
 
-  var query ="update ssdb.user set pword_hash_hash = $1, pword_salt = $2, wrapped_master = $3, last_update = (now() at time zone 'utc') where user_id = $4";
+  var query ="update ssdb.user set pword_hash_hash = $1, pword_salt = $2, wrapped_master = $3, last_update = (now() at time zone 'utc') where user_id = $4 returning *";
 
-  pbkdf2.newPassHash(userObj.password, (err, data) => {
+  pbkdf2.newPassHash(secret, (err, data) => {
 
     db.one(query, [data.hash, data.salt, wrapped_master, userID] )
       .then( (data) => {
@@ -145,7 +145,7 @@ exports.loginUser = (username, secret, cb)  => {
     .then( (data) => {
       pbkdf2.testPassHash(secret, data.pword_salt, data.pword_hash_hash, (err, didPass) => {
         if (err) {
-          console.log("login ERROR:", error.message || error); 
+          console.log("login ERROR:", err); 
           cb(err);
           return;
         }
