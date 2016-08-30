@@ -19,14 +19,14 @@ var db = pgp(cn);
 
 // FIXME: is this style of query safe against sql injection with pg-promise?
 
-exports.createCard = (cardObj, userID, cb) => {
+exports.createCard = (cardID, userID, cardData, cb) => {
 
   const query = "insert into ssdb.card (card_id, user_id, data_blob) " +
-        " values ($1, $2, 3) returning last_update"
+        " values ($1, $2, 3) returning card_id, last_update"
 
-  db.one(query, [cardObj.card_id, userID, cardObj.data_blob ] )
+  db.one(query, [cardID, userID, cardData ] )
     .then( (data) => {
-      cb(null, data)
+      cb(null, {id: data.card_id, version: data.last_update})
     })
     .catch( (error) => {
       console.log("ERROR: createCard:", error.message || error); 
@@ -35,11 +35,11 @@ exports.createCard = (cardObj, userID, cb) => {
 }
 
 
-exports.updateCard = (cardObj, userID, cb) => {
+exports.updateCard = (cardID, userID, lastUpdate, cardData, cb) => {
 
-  const query = "update ssdb.card set data_blob = $1, last_update = now() where card_id = $2 and last_update = $3 and userID = $4"
+  const query = "update ssdb.card set data_blob = $1, last_update = now() where card_id = $2 and last_update = $3 and userID = $4 returning *"
 
-  db.one(query, [cardObj.encrypted, cardObj.card_id, cardObj.last_update, userID ] )
+  db.one(query, [cardData, cardID, lastUpdate, userID ] )
     .then( (data) => {
       cb(null, data)
     })
@@ -54,8 +54,8 @@ exports.deleteCard = (cardID, userID, cb) => {
   const query ="delete from ssdb.card where card_id = $1 and user_id = $2";
 
   db.one(query, [cardID, userID] )
-    .then( (data) => {
-      cb(null, data)
+    .then( () => {
+      cb(null)
     })
     .catch( (error) => {
       console.log("ERROR: deleteCard:", error.message || error); 
@@ -75,8 +75,9 @@ exports.getCard = (cardID, userID, cb) => {
     });
 }
 
+// FIXME: pagination limits, maybe?
 exports.listCards = (userID, since, cb) => {
-  since = since || "2016-08-01 00:00:00.000000"
+  since = since || "2016-08-01T18:51:00.765Z"
   const query = "select card_id, user_id, last_update, data_blob from ssdb.card where user_id = $1 and last_update > $2"
   
   db.one(query, userID, since)

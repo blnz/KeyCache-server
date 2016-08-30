@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
 // if so, inject session user and token into the request
 const isAuthenticatedUser = (req, resp, next) => {
   console.log("isAuthenticated: body:", req.body);
-  sessionTok = req.query.session || req.param.session || req.body.session
+  sessionTok = req.query.session || req.params.session || req.body.session
   sessionUser = session.sessionUser(sessionTok)
   if ( session.sessionUser(sessionTok) ) {
     req["session"] = { user: sessionUser, token: sessionTok }
@@ -103,7 +103,7 @@ app.post('/api/logout', isAuthenticatedUser, (req, resp) => {
   }
 })
          
-app.get('/api/u/:user/c/:card', isAuthenticatedUser, (req, res) => {
+app.get('/api/u/:user/c/:card', isAuthenticatedUser, (req, resp) => {
   // get a single card record
 
   ifAuthorizedUser(req.query.session, req.params.user, (err) => {
@@ -123,7 +123,7 @@ app.get('/api/u/:user/c/:card', isAuthenticatedUser, (req, res) => {
   })
 })
   
-app.delete('/api/u/:user/c/:card', isAuthenticatedUser, (req, res) => {
+app.delete('/api/u/:user/c/:card', isAuthenticatedUser, (req, resp) => {
   ifAuthorizedUser(req.query.session, req.params.user, (err) => {
     if (err) {
       console.log( err)
@@ -141,13 +141,30 @@ app.delete('/api/u/:user/c/:card', isAuthenticatedUser, (req, res) => {
   })
 });
 
-app.put('/api/qu/:user/c/:card', isAuthenticatedUser, function(req, res) {
+app.put('/api/u/:user/c/:card', isAuthenticatedUser, function(req, resp) {
   // creates a new card record
-  
+  console.log("add card", req.body)
+  if (req.session.user === req.params.user) {
+    ssdb.createCard(req.params.card, req.params.user,
+                    JSON.stringify(req.body.encrypted), (err, data) => {
+      if (err) {
+        console.log(err)
+        resp.status(400).send('"failed"')
+        return
+      }
+      resp.status(200).send(JSON.stringify(data))
+    })
+  } else {
+    console.log(`req.session.user: ${req.session.user} != req.params.user: ${req.params.user}`)
+    resp.status(403).send('"not allowed"')
+  }
 });
 
 app.post('/api/u/:user/c/:card', isAuthenticatedUser, function(req, res) {
   // update an card record
+  // creates a new card record
+  console.log("update card", req.body)
+  resp.send('true')  
 });
 
 app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, res) {

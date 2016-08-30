@@ -15,14 +15,14 @@ CREATE TABLE ssdb.user (
        pword_hash_hash char(64),  
        pword_salt char(64),
        wrapped_master varchar(1024),
-       last_update timestamp default (now() at time zone 'utc')
+       last_update timestamp default now()
 );
 
 
 CREATE TABLE ssdb.card (
        card_id char(36) PRIMARY KEY,
        user_id char(36),
-       last_update timestamp default (now() at time zone 'utc'),
+       last_update timestamp default now(),
        data_blob TEXT,
        FOREIGN KEY (user_id) REFERENCES ssdb.user(user_id)
 );

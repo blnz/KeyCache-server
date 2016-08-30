@@ -16,9 +16,18 @@ const changedSecret = {"wrapped_master": { "iv": "b1a201ffdd010101bc",
 const changedLogin = {"username":"xyz","secret": "notxyzzzy"}
 
 
-var authtoken = undefined
+const card1 = {
+  "encrypted": {
+    "cipherText64" : "g2hPKWna1k7lGe0+VsKQIJUxqrJNKp5dujMrUdRsGlWEBugwOjF14GvTyBKyOGZFfLVzl02iIxQIWXrKTbZU9SL4b/6bVbUCb4osjcdyX6xCWx2Et1R6sSSsVqR0DUin",
+    "iv64" : "7ldjiQ9rCiPf6XS/5LY2zA=="
+  },
+  "id" : "85b358db-d987-4d90-b952-f68fe02c6781",
+  "version" : "2014-01-01T00:00:00.123Z"
+}
 
-var foo = 2
+
+var authtoken = undefined
+var userID = undefined
 
 var register = () => {
   return new Promise( (resolve, reject ) => {
@@ -31,13 +40,14 @@ var register = () => {
       },
       body: JSON.stringify(newUser)
     }).then( (response) => {
-      console.log("got response",  response.status)
+      console.log("register: got response",  response.status)
       if (response.status >= 400) {
         throw new Error("Bad response from server");
       }
       return response.json();
     }).then( (data) => {
       console.log("registered:", data);
+      userID = data.user_id
       resolve( data )
     })
   })
@@ -67,6 +77,35 @@ var changeSecret = (data) => {
   })
 }
   
+var addCard = (card) => {
+  console.log("preparing addCard promise creator")
+  return (data) => {
+    console.log("renning addCard promise creator")
+    return new Promise( (resolve, reject ) => {
+      console.log("running addCard function with data", card)
+      const url = `http://127.0.0.1:8000/api/u/${userID}/c/${card.id}?session=${authtoken}`
+      console.log("to url:", url)
+      fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(card)
+      }).then( (response) => {
+        console.log("add card got response",  response.status)
+        if (response.status >= 400) {
+          throw new Error("Bad response from server");
+        }
+        return response.json();
+      }).then( (data) => {
+        console.log("add card response json:", data);
+        resolve( data )
+      })
+    })
+  }
+}
+  
 var login = (data) => {
   return new Promise( (resolve, reject ) => {
     console.log("login started when we got", data)
@@ -85,6 +124,7 @@ var login = (data) => {
       return response.json();
     }).then( (data) => {
       console.log("authenticated:", data);
+      authtoken = data.session
       resolve(data)
     })
   })
@@ -94,13 +134,14 @@ var login = (data) => {
 const logout = (data) => {
   return new Promise( (resolve, reject ) => {
     console.log("logout started when we got", data)
-    fetch("http://127.0.0.1:8000/api/logout?session=" + data.session, {
+    console.log("saved authtoken is", authtoken)
+    fetch("http://127.0.0.1:8000/api/logout?session=" + authtoken, {
       method: 'POST',
       headers: {
         // 'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({session: data.session })
+      body: JSON.stringify({})
     }).then( (response) => {
       console.log("logout got response", response.status)
       if (response.status >= 400) {
@@ -108,7 +149,7 @@ const logout = (data) => {
       }
       return response.json();
     }).then( (data) => {
-      console.log("authenticated:", data);
+      console.log("logout response json:", data);
       resolve(data)
     })
   })
@@ -121,6 +162,9 @@ register()
   .then(logout)
   .then(login)
   .then(changeSecret)
+//  .then( (result) => { addCard(card1)} )
+//  .then( (result) => { addCard(card1).then( console.log("bye")) } )
+  .then( addCard(card1) )
   .then(logout)
   .catch( (err) => console.log(err))
 
