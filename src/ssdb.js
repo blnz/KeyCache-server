@@ -17,6 +17,8 @@ var cn = {
 var db = pgp(cn);
 
 
+// FIXME: is this style of query safe against sql injection with pg-promise?
+
 exports.createCard = (cardObj, userID, cb) => {
 
   const query = "insert into ssdb.card (card_id, user_id, data_blob) " +
@@ -35,7 +37,7 @@ exports.createCard = (cardObj, userID, cb) => {
 
 exports.updateCard = (cardObj, userID, cb) => {
 
-  const query = "update ssdb.card set data_blob = $1, last_update = (now() at time zone 'utc') where card_id = $2 and last_update = $3 and userID = $4"
+  const query = "update ssdb.card set data_blob = $1, last_update = now() where card_id = $2 and last_update = $3 and userID = $4"
 
   db.one(query, [cardObj.encrypted, cardObj.card_id, cardObj.last_update, userID ] )
     .then( (data) => {
@@ -95,7 +97,7 @@ exports.listCards = (userID, since, cb) => {
 
 exports.registerUser = (username, secret, wrapped_master, cb)  => {
 
-  var query ="insert into ssdb.user (user_id, username, pword_hash_hash, pword_salt, wrapped_master, last_update) values ( $1, $2, $3, $4, $5, (now() at time zone 'utc')) returning *";
+  var query ="insert into ssdb.user (user_id, username, pword_hash_hash, pword_salt, wrapped_master, last_update) values ( $1, $2, $3, $4, $5, now()) returning *";
 
   const userID = require('node-uuid').v4()  // generate a new guid for this user
   
@@ -120,7 +122,7 @@ exports.registerUser = (username, secret, wrapped_master, cb)  => {
 
 exports.changeUserSecret = (userID, secret, wrapped_master, cb)  => {
 
-  var query ="update ssdb.user set pword_hash_hash = $1, pword_salt = $2, wrapped_master = $3, last_update = (now() at time zone 'utc') where user_id = $4 returning *";
+  var query ="update ssdb.user set pword_hash_hash = $1, pword_salt = $2, wrapped_master = $3, last_update = now() where user_id = $4 returning *";
 
   pbkdf2.newPassHash(secret, (err, data) => {
 
