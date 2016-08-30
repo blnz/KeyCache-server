@@ -1,4 +1,5 @@
 const pbkdf2 = require('./pbkdf2')
+, session = require('./session');
 
 // postgres
 var pgp = require('pg-promise')({
@@ -16,12 +17,12 @@ var cn = {
 var db = pgp(cn);
 
 
-exports.createCard = (cardObj, cb) => {
+exports.createCard = (cardObj, userID, cb) => {
 
   const query = "insert into ssdb.card (card_id, user_id, data_blob) " +
         " values ($1, $2, 3) returning last_update"
 
-  db.one(query, [cardObj.card_id, cardObj.user_id, cardObj.data_blob ] )
+  db.one(query, [cardObj.card_id, userID, cardObj.data_blob ] )
     .then( (data) => {
       cb(null, data)
     })
@@ -32,11 +33,11 @@ exports.createCard = (cardObj, cb) => {
 }
 
 
-exports.updateCard = (cardObj, cb) => {
+exports.updateCard = (cardObj, userID, cb) => {
 
-  const query = "update ssdb.card set data_blob = $1, last_update = (now() at time zone 'utc') where card_id = $2 and last_update = $3"
+  const query = "update ssdb.card set data_blob = $1, last_update = (now() at time zone 'utc') where card_id = $2 and last_update = $3 and userID = $4"
 
-  db.one(query, [cardObj.encrypted, cardObj.card_id, cardObj.last_update ] )
+  db.one(query, [cardObj.encrypted, cardObj.card_id, cardObj.last_update, userID ] )
     .then( (data) => {
       cb(null, data)
     })
@@ -46,11 +47,11 @@ exports.updateCard = (cardObj, cb) => {
     });
 }
 
-exports.deleteCard = (cardID, cb) => {
+exports.deleteCard = (cardID, userID, cb) => {
 
-  const query ="delete from ssdb.card where card_id = $1";
+  const query ="delete from ssdb.card where card_id = $1 and user_id = $2";
 
-  db.one(query,cardID )
+  db.one(query, [cardID, userID] )
     .then( (data) => {
       cb(null, data)
     })
@@ -60,9 +61,9 @@ exports.deleteCard = (cardID, cb) => {
     });
 }
 
-exports.getCard = (cardID, cb) => {
-  const query = "select card_id, user_id, last_update, data_blob from ssdb.card where card_id = $1"
-  db.one(query, cardID )
+exports.getCard = (cardID, userID, cb) => {
+  const query = "select card_id, user_id, last_update, data_blob from ssdb.card where card_id = $1 and userID = $2"
+  db.one(query, [cardID, userID] )
     .then( (data) => {
       cb(null, data)
     })
@@ -87,19 +88,43 @@ exports.listCards = (userID, since, cb) => {
 }
 
 
-// const sample_userObj = {
+//  
 //   username: "jimmy",
-//   password: "secret password",
+//   secret: "secret password",
 //   wrapped_master: "{iv, wrapped}"
-// }
 
-exports.registerUser = (userObj, cb)  => {
+exports.registerUser = (username, secret, wrapped_master, cb)  => {
 
-  var query ="insert into ssdb.user (user_name, pword_hash_hash, pword_salt, wrapped_master, last_update) values ( $1, $2, $3, $4, now()) returning user_id";
+  var query ="insert into ssdb.user (user_id, username, pword_hash_hash, pword_salt, wrapped_master, last_update) values ( $1, $2, $3, $4, $5, (now() at time zone 'utc')) returning *";
+
+  const userID = require('node-uuid').v4()  // generate a new guid for this user
+  
+  pbkdf2.newPassHash(secret, (err, data) => {
+
+    db.one(query, [userID, username, data.hash, data.salt, wrapped_master] )
+      .then( (data) => {
+        console.log("new registration:", data);
+        const returnable = { user_id: data.user_id,
+                             username: data.username,
+                             last_updated: data.last_update}
+                             
+        cb(null, returnable)
+      })
+      .catch( (error) => {
+        console.log("ERROR:", error.message || error); 
+        cb(error)
+      });
+  });
+}
+
+
+exports.changeUserSecret = (userID, secret, wrapped_master, cb)  => {
+
+  var query ="update ssdb.user set pword_hash_hash = $1, pword_salt = $2, wrapped_master = $3, last_update = (now() at time zone 'utc') where user_id = $4";
 
   pbkdf2.newPassHash(userObj.password, (err, data) => {
 
-    db.one(query,[ userObj.username, data.hash, data.salt, userObj.wrapped_master] )
+    db.one(query, [data.hash, data.salt, wrapped_master, userID] )
       .then( (data) => {
         console.log(data);
         cb(null, data)
@@ -111,64 +136,25 @@ exports.registerUser = (userObj, cb)  => {
   });
 }
 
-// the simplest session implementation, ever:
-// an array of pairs: [ user_id, session_token ] 
-// N.B. session is local to this node instance
 
-var sessions = []
+// checks the pbkdf2 hash of the provided secret for user & gets or creates a session if valid
+exports.loginUser = (username, secret, cb)  => {
 
-// creates a session for the user if it doesn't already exist
-
-const sessionToken = (user_id, cb) => {
-  var session = sessions.filter( (elem) => elem[0] == user_id )
-  if (session) {
-    callback(null, session[1])
-    return
-  }
-  crypto.randomBytes(16, (err, buf) => {
-    if (err) {
-      cb(err);
-      return;
-    }
-    const token =  buf.toString('hex')
-    sessions.push([user_id, token])
-    cb(null, token)
-  });
-}
-
-const sessionUser = (token) => {
-  return sessions.filter( (elem) => elem[1] == token )
-}
-
-
-// checks password for user & gets or creates a session if valid
-
-exports.loginUser = (userObj, cb)  => {
-
-  // userObj := { username: "foo", password: "secret" }
-  
-  var query ="select user_id, pword_hash_hash, pword_salt from ssdb.user where user_name = $1";
-  db.one(query, userObj.username)
+  var query ="select user_id, pword_hash_hash, pword_salt from ssdb.user where username = $1";
+  db.one(query, username)
     .then( (data) => {
-      pbkdf2.testPassHash(userObj.password, data.pword_salt, data.pword_hash_hash, (err, data) => {
+      pbkdf2.testPassHash(secret, data.pword_salt, data.pword_hash_hash, (err, didPass) => {
         if (err) {
           console.log("login ERROR:", error.message || error); 
           cb(err);
           return;
         }
-        console.log(data);
-        sessionToken(data.user_id, cb)
+        console.log("hash matches for", data, didPass);
+        session.sessionToken(data.user_id, cb)
       })
     })
     .catch(function (error) {
       console.log("login ERROR:", error.message || error); 
       cb(error)
     });
-}
-
-exports.closeSession = (token) => {
-  const userID = sessionUser(token)
-  if (userID) {
-    sessions = sessions.filter( (entry) => entry[0] != userID )
-  }
 }

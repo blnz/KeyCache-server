@@ -1,86 +1,145 @@
 const path = require('path')
-, sqlite3 = require('sqlite3').verbose()
 , express = require('express')
-, user = require('./src/user')
-, ssdb = require('./src/ssdb');
+, session = require('./src/session')
+, ssdb = require('./src/ssdb')
+, bodyParser = require('body-parser')
+
+const PORT = 8000
 
 var app = express()
 
-var privdb = function() {
-  var priv = new sqlite3.Database(path.join(__dirname, "data/KeyCache.db"), function(err) {
-    if (err) {
-      console.log(err);
-    }
-  });
-  return priv;
-}
+// parse application/x-www-form-urlencoded 
+app.use(bodyParser.urlencoded({ extended: false }))
+ 
+// parse application/json 
+app.use(bodyParser.json())
 
-var db = privdb();
+app.use(express.static('public'));
 
-app.get('/', function(req, res){
-  path = "index.html";
-  res.sendfile('./public/' + path);
+app.get('/', (req, res) => {
+  console.log("get /")
+  path = "index.html"
+  res.sendFile(__dirname + '/public/' + path)
 });
 
-var isAuthenticatedUser = function(req, resp, next) {
-  // we're easy
-  next();
+// express middleware. Do we have a valid session token?
+// if so, inject session user and token into the request
+const isAuthenticatedUser = (req, resp, next) => {
+  console.log("isAuthenticated: body:", req.body);
+  sessionTok = req.query.session || req.param.session || req.body.session
+  sessionUser = session.sessionUser(sessionTok)
+  if ( session.sessionUser(sessionTok) ) {
+    req["session"] = { user: sessionUser, token: sessionTok }
+    next();
+  } else {
+    resp.status(401).send("not authenticated")
+  }
 }
 
-app.get('/api/:user/:card', isAuthenticatedUser, function(req, res) {
+// ensure the owner of the session token owns the resource
+const ifAuthorizedUser = (sessionToken, authorizedUser, cb) => {
+  if (authorizedUser === session.sessionUser(sessionToken)) {
+    cb(null, true)
+  } else {
+    cb("not authorized", false)
+  }
+}
+
+// create and return a session token if successful
+app.post('/api/authenticate', (req, resp) => {
+
+  console.log(req.body)
+  ssdb.loginUser(req.body.username, req.body.secret, (err, data) => {
+    if (err) {
+      resp.status(400).send("sorry")
+      return
+    }
+    console.log("got session:", data, { session: data })
+    resp.setHeader('Content-Type', 'application/json');
+    resp.status(200).send(JSON.stringify({ session: data }))
+  })
+})
+
+// create a new user
+app.post('/api/register', (req, resp) => {
+  console.log(req.body)
+  resp.setHeader('Content-Type', 'application/json');
+  ssdb.registerUser(req.body.username,
+                req.body.secret,
+                JSON.stringify(req.body.wrapped_master), (err, data) => {
+                  if (err) {
+                    console.log(err)
+                    resp.status(400).send("cannot register")
+                    return
+                  }
+                  resp.status(200).send(JSON.stringify(data))
+                })
+})
+         
+app.post('/api/logout', isAuthenticatedUser, (req, resp) => {
+  
+  if ( session.closeSession(req.session.token) ) {
+    resp.setHeader('Content-Type', 'application/json');
+    resp.status(200).send("true")
+  } else {
+    resp.status(403).send("cannot logout")
+  }
+})
+         
+app.get('/api/u/:user/c/:card', isAuthenticatedUser, (req, res) => {
   // get a single card record
-  
-  var stmt = "SELECT card_id, user_id, version, data_blob from card where user_id = ? and card_id = ?";
-  db.get(stmt, req.params.user, req.params.card,  function(err, row) {
 
+  ifAuthorizedUser(req.query.session, req.params.user, (err) => {
     if (err) {
-      console.log(err);
-      res.status(400).send(err);
-    } else {
-      res.setHeader("Content-Type", "application/json");
-      res.status(200).send(JSON.stringify(row, null, 4));
+      console.log( err)
+      resp.status(403).send("not authorized")
+      return
     }
-  });
+    ssdb.getCard(req.params.card, req.params.user, (err, data) => {
+      if (err) {
+        console.log("failed get", err)
+        resp.status(404).send("not found")
+        return
+      }
+      resp.send(JSON.stringify(data))
+    })
+  })
+})
   
+app.delete('/api/u/:user/c/:card', isAuthenticatedUser, (req, res) => {
+  ifAuthorizedUser(req.query.session, req.params.user, (err) => {
+    if (err) {
+      console.log( err)
+      resp.status(403).send("not authorized")
+      return
+    }
+    ssdb.deleteCard(req.params.card, req.params.user, (err, data) => {
+      if (err) {
+        console.log("failed get", err)
+        resp.status(404).send("not found")
+        return
+      }
+      resp.send(JSON.stringify(data))
+    })
+  })
 });
 
-app.delete('/api/:user/:card/:version', isAuthenticatedUser, function(req, res) {
-  // delete an card record
-  var stmt = "DELETE from card wher user_id = ? and card_id = ? and version = ?";
-
-  
-});
-
-app.put('/api/:user/:card', isAuthenticatedUser, function(req, res) {
+app.put('/api/qu/:user/c/:card', isAuthenticatedUser, function(req, res) {
   // creates a new card record
   
 });
 
-app.post('/api/:user/cards/:card/:version', isAuthenticatedUser, function(req, res) {
+app.post('/api/u/:user/c/:card', isAuthenticatedUser, function(req, res) {
   // update an card record
 });
 
-app.get('/api/:user/cards',  isAuthenticatedUser, function(req, res) {
+app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, res) {
   // return a list of cards for that user
   
 });
 
 
-
 if (!module.parent) {
-  const sample_userObj = {
-    username: "jimmy",
-    password: "secret password",
-    wrapped_master: "base64 String"
-  }
-
-  ssdb.registerUser(sample_userObj, (err, data) => {
-    if (err) {
-      console.log(err)
-    } else {
-      console.log("inserted", data)
-    }
-  });
   app.listen(8000);
   console.log("Express server listening on port %d", 8000);
 }

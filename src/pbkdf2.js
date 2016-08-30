@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-console.log(crypto.getHashes())
 
 const config = {
   iters: 1000000,
