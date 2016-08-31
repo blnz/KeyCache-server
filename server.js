@@ -160,16 +160,29 @@ app.put('/api/u/:user/c/:card', isAuthenticatedUser, function(req, resp) {
   }
 });
 
-app.post('/api/u/:user/c/:card', isAuthenticatedUser, function(req, res) {
+app.post('/api/u/:user/c/:card', isAuthenticatedUser, function(req, resp) {
   // update an card record
   // creates a new card record
   console.log("update card", req.body)
   resp.send('true')  
 });
 
-app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, res) {
+app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, resp) {
   // return a list of cards for that user
-  
+  console.log("list cards", req.query.since)
+  if (req.session.user === req.params.user) {
+    ssdb.listCards(req.params.user, null, (err, data) => {
+      if (err) {
+        console.log(err)
+        resp.status(400).send('"failed"')
+        return
+      }
+      resp.status(200).send(JSON.stringify(data))
+    })
+  } else {
+    console.log(`req.session.user: ${req.session.user} != req.params.user: ${req.params.user}`)
+    resp.status(403).send('"not allowed"')
+  }
 });
 
 

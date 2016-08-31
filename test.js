@@ -25,6 +25,14 @@ const card1 = {
   "version" : "2014-01-01T00:00:00.123Z"
 }
 
+const card2 = {
+  "encrypted": {
+    "cipherText64" : "XcdPl4+MbNYk7lGe0+VsKQIJUxqrJNKp5dujMrUdRsGlWEBugwOjF14GvTyBKyOGZFfLVzl02iIxQIWXrKTbZU9SL4b/6bVbUCb4osjcdyX6xCWx2Et1R6sSSsVqR0DUin",
+    "iv64" : "7ldjiQ9rCiPf6XS/5LY2zA=="
+  },
+  "id" : "94d758a1-bc72-4d90-b947-f68a102c673b",
+}
+
 
 var authtoken = undefined
 var userID = undefined
@@ -106,6 +114,34 @@ var addCard = (card) => {
   }
 }
   
+var listCards = (since) => {
+  console.log("preparing listCards promise creator")
+  return (data) => {
+    console.log("renning addCard promise creator")
+    return new Promise( (resolve, reject ) => {
+      console.log("running listCards function with data", since)
+      const url = `http://127.0.0.1:8000/api/u/${userID}/c/?session=${authtoken}`
+      console.log("to url:", url)
+      fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+      }).then( (response) => {
+        console.log("list card got response",  response.status)
+        if (response.status >= 400) {
+          throw new Error("Bad response from server");
+        }
+        return response.json();
+      }).then( (data) => {
+        console.log("list cards response json:", data);
+        resolve( data )
+      })
+    })
+  }
+}
+
 var login = (data) => {
   return new Promise( (resolve, reject ) => {
     console.log("login started when we got", data)
@@ -129,7 +165,7 @@ var login = (data) => {
     })
   })
 }
-                    
+
 
 const logout = (data) => {
   return new Promise( (resolve, reject ) => {
@@ -162,116 +198,11 @@ register()
   .then(logout)
   .then(login)
   .then(changeSecret)
-//  .then( (result) => { addCard(card1)} )
-//  .then( (result) => { addCard(card1).then( console.log("bye")) } )
   .then( addCard(card1) )
+  .then( addCard(card2) )
+  .then( listCards() )
   .then(logout)
+  .then(console.log("tests complete"))
   .catch( (err) => console.log(err))
 
     
-
-// var p1 = new Promise( (resolve, reject) => {
-//   console.log("running p1 promise function")
-//   fetch("http://127.0.0.1:8000/api/register", {
-//     method: 'POST',
-//     headers: {
-//       'Accept': 'application/json',
-//       'Content-Type': 'application/json'
-//     },
-//     body: JSON.stringify(newUser)
-//   }).then( (response) => {
-//     console.log("got response")
-//     if (response.status >= 400) {
-//       throw new Error("Bad response from server");
-//     }
-//     return response.json();
-//   }).then( (data) => {
-//     console.log("registered:", data);
-//     resolve( "bar" )
-//   }).catch((err) => {
-//     reject( err)
-//   }).then(q2)
-// })
-    // }).then ( (data) => {
-    //   console.log("next query started when we got", data)
-    //   fetch("http://127.0.0.1:8000/api/authenticate", {
-    //     method: 'POST',
-    //     headers: {
-    //       'Accept': 'application/json',
-    //       'Content-Type': 'application/json'
-    //     },
-    //     body: JSON.stringify(userLogin)
-    //   }).then( (response) => {
-    //     console.log("authenticate got response")
-    //     if (response.status >= 400) {
-    //       throw new Error("Bad response from server");
-    //     }
-    //     return response.json();
-
-    // }).then( (data) => {
-    //   console.log("authenticated:", data);
-    // }).catch( (err)  => {
-    //   console.log(err)
-    // })
-
-    //   })
-
-
-      // }).then ( (data) => {
-    //   console.log("next query started when we got", data)
-    //   fetch("http://127.0.0.1:8000/api/authenticate", {
-    //     method: 'POST',
-    //     headers: {
-    //       'Accept': 'application/json',
-    //       'Content-Type': 'application/json'
-    //     },
-    //     body: JSON.stringify(userLogin)
-    //   }).then( (response) => {
-    //     console.log("authenticate got response")
-    //     if (response.status >= 400) {
-    //       throw new Error("Bad response from server");
-    //     }
-    //     return response.json();
-    //   }).then( (data) => {
-    //     console.log("authenticated:", data);
-    //   })
-    // }).then( data )  => {
-    //   console.log("i'm here with :" , data)
-    // }).catch( (err) => {
-    //   console.log("finally, an error", err)
-    // })
-      
-
-// p1.then( () => { console.log("ran p1") } );
-
-
-// var p2 = fetch("http://127.0.0.1:8000/api/authenticate", {
-//   method: 'POST',
-//   headers: {
-//     'Accept': 'application/json',
-//     'Content-Type': 'application/json'
-//   },
-//   body: JSON.stringify(newUser)
-// }).then( (response) => {
-//   // console.log(response)
-//   if (response.status >= 400) {
-//     throw new Error("Bad response from server");
-//   }
-//   return response.json();
-// }).then( (data) => {
-//   console.log("registered:", data);
-//   return "bar"
-// }).then( (bar) => {
-//   console.log("bar:", bar)
-// }).catch((err) => {
-//   console.log("p2 whoops", err)
-// });
-
-// p1.then( () => {
-//   console.log("after p1 more")
-//   p2.then( () => {
-//     console.log("done p2 ")
-//   }).catch( (err) => {
-//     console.log("p1p2 whoops", err)
-//   })
-//     });

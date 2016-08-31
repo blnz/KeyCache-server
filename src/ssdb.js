@@ -22,7 +22,7 @@ var db = pgp(cn);
 exports.createCard = (cardID, userID, cardData, cb) => {
 
   const query = "insert into ssdb.card (card_id, user_id, data_blob) " +
-        " values ($1, $2, 3) returning card_id, last_update"
+        " values ($1, $2, $3) returning card_id, last_update"
 
   db.one(query, [cardID, userID, cardData ] )
     .then( (data) => {
@@ -80,7 +80,7 @@ exports.listCards = (userID, since, cb) => {
   since = since || "2016-08-01T18:51:00.765Z"
   const query = "select card_id, user_id, last_update, data_blob from ssdb.card where user_id = $1 and last_update > $2"
   
-  db.one(query, userID, since)
+  db.any(query, [userID, since])
     .then( (data) => {
       cb(null, data)
     })
