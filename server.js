@@ -17,9 +17,7 @@ app.use(bodyParser.json())
 app.use(express.static('public'));
 
 app.get('/', (req, res) => {
-  console.log("get /")
-  path = "index.html"
-  res.sendFile(__dirname + '/public/' + path)
+  res.sendFile(__dirname + '/public/index.html')
 });
 
 // express middleware. Do we have a valid session token?
@@ -191,7 +189,7 @@ app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, resp) {
 
 
 if (!module.parent) {
-  app.listen(8000);
-  console.log("Express server listening on port %d", 8000);
+  app.listen(PORT);
+  console.log("syncserver listening on port %d", PORT);
 }
 

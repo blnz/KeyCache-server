@@ -7,8 +7,6 @@ CREATE SCHEMA ssdb;
 
 GRANT ALL PRIVILEGES ON SCHEMA ssdb TO ssdb;
 
---- 85b358db-d987-4d90-b952-f68fe02c6781
-
 CREATE TABLE ssdb.user (
        user_id char(36) PRIMARY KEY,
        username varchar(64) UNIQUE,
@@ -17,7 +15,6 @@ CREATE TABLE ssdb.user (
        wrapped_master varchar(1024),
        last_update timestamp default now()
 );
-
 
 CREATE TABLE ssdb.card (
        card_id char(36) PRIMARY KEY,
@@ -29,4 +26,4 @@ CREATE TABLE ssdb.card (
 );
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ssdb TO ssdb;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA ssdb TO ssdb;
+
