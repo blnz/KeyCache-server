@@ -23,6 +23,7 @@ CREATE TABLE ssdb.card (
        card_id char(36) PRIMARY KEY,
        user_id char(36),
        last_update timestamp default now(),
+       active boolean default TRUE,
        data_blob TEXT,
        FOREIGN KEY (user_id) REFERENCES ssdb.user(user_id)
 );

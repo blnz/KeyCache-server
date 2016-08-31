@@ -7,11 +7,11 @@ var pgp = require('pg-promise')({
 });
 
 var cn = {
-    host: 'localhost',
+    host: process.env.PGHOST || 'localhost',
     port: 5432,
-    database: 'postgres',
-    user: 'ssdb',
-    password: 'ssdb'
+    database: process.env.PGDATABASE || 'postgres',
+    user: process.env.PGUSER || 'ssdb',
+    password: process.env.PGPASSWORD || 'ssdb'
 };
 
 var db = pgp(cn);
@@ -23,7 +23,7 @@ exports.createCard = (cardID, userID, cardData, cb) => {
 
   const query = "insert into ssdb.card (card_id, user_id, data_blob) " +
         " values ($1, $2, $3) returning card_id, last_update"
-
+  
   db.one(query, [cardID, userID, cardData ] )
     .then( (data) => {
       cb(null, {id: data.card_id, version: data.last_update})
@@ -36,9 +36,9 @@ exports.createCard = (cardID, userID, cardData, cb) => {
 
 
 exports.updateCard = (cardID, userID, lastUpdate, cardData, cb) => {
-
-  const query = "update ssdb.card set data_blob = $1, last_update = now() where card_id = $2 and last_update = $3 and userID = $4 returning *"
-
+  
+  const query = "update ssdb.card set data_blob = $1, last_update = now() where card_id = $2 and last_update = $3 and userID = $4  returning *"
+  
   db.one(query, [cardData, cardID, lastUpdate, userID ] )
     .then( (data) => {
       cb(null, data)
@@ -50,9 +50,9 @@ exports.updateCard = (cardID, userID, lastUpdate, cardData, cb) => {
 }
 
 exports.deleteCard = (cardID, userID, cb) => {
-
-  const query ="delete from ssdb.card where card_id = $1 and user_id = $2";
-
+  
+  const query ="update ssdb.card set active = FALSE, data_blob = '{}', last_update = now() where card_id = $1 and user_id = $2";
+  
   db.one(query, [cardID, userID] )
     .then( () => {
       cb(null)
@@ -64,7 +64,7 @@ exports.deleteCard = (cardID, userID, cb) => {
 }
 
 exports.getCard = (cardID, userID, cb) => {
-  const query = "select card_id, user_id, last_update, data_blob from ssdb.card where card_id = $1 and userID = $2"
+  const query = "select card_id, user_id, last_update, data_blob, active from ssdb.card where card_id = $1 and userID = $2"
   db.one(query, [cardID, userID] )
     .then( (data) => {
       cb(null, data)
@@ -78,7 +78,7 @@ exports.getCard = (cardID, userID, cb) => {
 // FIXME: pagination limits, maybe?
 exports.listCards = (userID, since, cb) => {
   since = since || "2016-08-01T18:51:00.765Z"
-  const query = "select card_id, user_id, last_update, data_blob from ssdb.card where user_id = $1 and last_update > $2"
+  const query = "select card_id, user_id, last_update, data_blob, active from ssdb.card where user_id = $1 and last_update > $2"
   
   db.any(query, [userID, since])
     .then( (data) => {
@@ -106,7 +106,6 @@ exports.registerUser = (username, secret, wrapped_master, cb)  => {
 
     db.one(query, [userID, username, data.hash, data.salt, wrapped_master] )
       .then( (data) => {
-        console.log("new registration:", data);
         const returnable = { user_id: data.user_id,
                              username: data.username,
                              last_updated: data.last_update}
@@ -129,7 +128,6 @@ exports.changeUserSecret = (userID, secret, wrapped_master, cb)  => {
 
     db.one(query, [data.hash, data.salt, wrapped_master, userID] )
       .then( (data) => {
-        console.log(data);
         cb(null, data)
       })
       .catch( (error) => {
@@ -152,7 +150,6 @@ exports.loginUser = (username, secret, cb)  => {
           cb(err);
           return;
         }
-        console.log("hash matches for", data, didPass);
         session.sessionToken(data.user_id, cb)
       })
     })

@@ -28,9 +28,17 @@ const card1 = {
 const card2 = {
   "encrypted": {
     "cipherText64" : "XcdPl4+MbNYk7lGe0+VsKQIJUxqrJNKp5dujMrUdRsGlWEBugwOjF14GvTyBKyOGZFfLVzl02iIxQIWXrKTbZU9SL4b/6bVbUCb4osjcdyX6xCWx2Et1R6sSSsVqR0DUin",
-    "iv64" : "7ldjiQ9rCiPf6XS/5LY2zA=="
+    "iv64" : "8BGjiQ9rCiPf6XS/5LY2zA=="
   },
   "id" : "94d758a1-bc72-4d90-b947-f68a102c673b",
+}
+
+const card3 = {
+  "encrypted": {
+    "cipherText64" : "Zippy3+MbNYk7lGe0+VsKQIJUxqrJNKp5dujMrUdRsGlWEBugwOjF14GvTyBKyOGZFfLVzl02iIxQIWXrKTbZU9SL4b/6bVbUCb4osjcdyX6xCWx2Et1R6sSSsVqR0DUin",
+    "iv64" : "FUNnyQ9rCiPf6XS/5LY2zA=="
+  },
+  "id" : "010058a1-bc72-4d90-b947-f68a102c673b",
 }
 
 
@@ -169,8 +177,7 @@ var login = (data) => {
 
 const logout = (data) => {
   return new Promise( (resolve, reject ) => {
-    console.log("logout started when we got", data)
-    console.log("saved authtoken is", authtoken)
+    console.log("logout for authtoken", authtoken)
     fetch("http://127.0.0.1:8000/api/logout?session=" + authtoken, {
       method: 'POST',
       headers: {
@@ -181,7 +188,7 @@ const logout = (data) => {
     }).then( (response) => {
       console.log("logout got response", response.status)
       if (response.status >= 400) {
-        throw new Error("Bad response from server");
+        throw new Error("Bad response from server", status);
       }
       return response.json();
     }).then( (data) => {
@@ -201,6 +208,7 @@ register()
   .then( addCard(card1) )
   .then( addCard(card2) )
   .then( listCards() )
+  .then( addCard(card3) )
   .then(logout)
   .then(console.log("tests complete"))
   .catch( (err) => console.log(err))

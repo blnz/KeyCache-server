@@ -11,7 +11,6 @@ var sessions = []
 exports.sessionToken = (user_id, cb) => {
   var session = sessions.filter( (elem) => elem[0] == user_id )
   if (session.length == 1) {
-    console.log("found session", session[0][1])
     cb(null, session[0][1])
     return
   }
@@ -21,7 +20,6 @@ exports.sessionToken = (user_id, cb) => {
       return;
     }
     const token =  buf.toString('hex')
-    console.log("creating session:",[user_id, token]) 
     sessions.push([user_id, token])
     cb(null, token)
   });
@@ -37,13 +35,9 @@ exports.sessionUser = (token) => {
 }
 
 exports.closeSession = (token) => {
-  console.log("sessions:", sessions)
   const userID = exports.sessionUser(token)
-  console.log("userID", userID, "sessionTok", token)
   if (userID) {
-    console.log("revising sessions from", sessions)
     sessions = sessions.filter( (entry) => entry[0] != userID )
-    console.log("revised to", sessions)
     return true
   } else {
     return false

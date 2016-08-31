@@ -147,13 +147,13 @@ app.put('/api/u/:user/c/:card', isAuthenticatedUser, function(req, resp) {
   if (req.session.user === req.params.user) {
     ssdb.createCard(req.params.card, req.params.user,
                     JSON.stringify(req.body.encrypted), (err, data) => {
-      if (err) {
-        console.log(err)
-        resp.status(400).send('"failed"')
-        return
-      }
-      resp.status(200).send(JSON.stringify(data))
-    })
+                      if (err) {
+                        console.log(err)
+                        resp.status(400).send('"failed"')
+                        return
+                      }
+                      resp.status(200).send(JSON.stringify(data))
+                    })
   } else {
     console.log(`req.session.user: ${req.session.user} != req.params.user: ${req.params.user}`)
     resp.status(403).send('"not allowed"')
@@ -177,7 +177,11 @@ app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, resp) {
         resp.status(400).send('"failed"')
         return
       }
-      resp.status(200).send(JSON.stringify(data))
+      const list = data.map( card => { return { id: card.card_id,
+                                                version: card.last_update,
+                                                encrypted: JSON.parse(card.data_blob) } })
+      
+      resp.status(200).send(JSON.stringify(list))
     })
   } else {
     console.log(`req.session.user: ${req.session.user} != req.params.user: ${req.params.user}`)

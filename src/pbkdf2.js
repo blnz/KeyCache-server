@@ -56,7 +56,6 @@ const test = (secret1, secret2) => {
         console.log(err)
         return;
       }
-      console.log(secret1, " - ", secret2, hash === data.hash ? " matched" : " missed")
     })
   })
 }
