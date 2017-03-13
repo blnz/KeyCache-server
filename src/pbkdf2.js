@@ -8,6 +8,7 @@ const config = {
 }
 
 const genHash = (secret, salt, cb) => {
+  console.log("genHash for secret:", secret); 
   crypto.pbkdf2(secret, salt, config.iters, config.keylen, config.algo, (err, key) => {
     if (err) {
       cb(err);
@@ -21,6 +22,9 @@ const genHash = (secret, salt, cb) => {
 // result is an object with hash and salt as hex strings
 //
 exports.newPassHash = (secret, cb) => {
+  if (!secret) {
+    cb("no secret to hash");
+  }
   crypto.randomBytes(config.saltlen, (err, buf) => {
     if (err) {
       cb(err);
