@@ -3,15 +3,39 @@ const path = require('path')
 , session = require('./src/session')
 , ssdb = require('./src/ssdb')
 , bodyParser = require('body-parser')
+, jwt = require('jsonwebtoken')
 
 const PORT = 8000
 
 var app = express()
 
 app.use(bodyParser.urlencoded({ extended: false }))
- 
 // parse application/json 
 app.use(bodyParser.json())
+
+// decode jwt token if we find one, and store in the req as "session"
+app.use( (req, resp, next) => {
+  if (req.headers &&
+      req.headers.authentication &&
+      req.headers.authentication.split(' ')[0] === 'JWT') {
+
+    jwt.verify(req.headers.verify(req.headers.authentication.split(' ')[1],
+                                  'SERVER-SECRET',
+                                  (err, decode) => {
+                                    if (err) {
+                                      req.session = undefined;
+                                    } else {
+                                      console.log(decode);
+                                      req.session = decode;
+                                    }
+                                    next();
+                                  }
+                                 ));
+  } else {
+    req.session = undefined;
+    next()
+  }
+});
 
 app.use(express.static('public'));
 
@@ -19,15 +43,12 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html')
 });
 
-// express middleware. Do we have a valid session token?
-// if so, inject session user and token into the request
+// express middleware. Do we have a valid session?
+// only continue if yes
 
 const isAuthenticatedUser = (req, resp, next) => {
 
-  sessionTok = req.query.session || req.params.session || req.body.session
-  sessionUser = session.sessionUser(sessionTok)
-  if ( session.sessionUser(sessionTok) ) {
-    req["session"] = { user: sessionUser, token: sessionTok }
+  if ( req.session ) {
     next();
   } else {
     resp.status(401).send('"not authenticated"')
@@ -43,14 +64,16 @@ app.post('/api/authenticate', (req, resp) => {
       resp.status(401).send('"not authenticated"')
       return
     }
-    resp.setHeader('Content-Type', 'application/json');
-    resp.status(200).send(JSON.stringify({ session: data }))
+
+    resp.json({token: jwt.sign({ data }, 'SERVER_SECRET')})
+
   })
 })
 
 // FIXME: handle ddos attacks
 // create a new user
 app.post('/api/register', (req, resp) => {
+
   resp.setHeader('Content-Type', 'application/json');
   ssdb.registerUser(req.body.username,
                     req.body.secret,
@@ -181,3 +204,4 @@ if (!module.parent) {
   console.log("syncserver listening on port %d", PORT);
 }
 
+module.exports = app;

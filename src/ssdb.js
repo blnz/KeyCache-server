@@ -91,6 +91,24 @@ exports.listCards = (userID, since, cb) => {
 }
 
 
+//
+// users
+//
+
+// checks if username exists, returns user_id
+const checkUsername = (username, cb)  => {
+
+  var query ="select user_id from ssdb.user where username = $1";
+  db.one(query, username)
+    .then( (data) => {
+      cb(null, {user: data.user_id });
+    })
+    .catch(function (error) {
+      cb(error)
+    });
+}
+
+
 //  
 //   username: "jimmy",
 //   secret: "secret password",
@@ -98,24 +116,40 @@ exports.listCards = (userID, since, cb) => {
 
 exports.registerUser = (username, secret, wrapped_master, cb)  => {
 
-  var query ="insert into ssdb.user (user_id, username, pword_hash_hash, pword_salt, wrapped_master, last_update) values ( $1, $2, $3, $4, $5, now()) returning *";
+  const myWrapped_master = wrapped_master;
+  const myUsername = username;
+  const mySecret = secret;
 
-  const userID = require('node-uuid').v4()  // generate a new guid for this user
-  
-  pbkdf2.newPassHash(secret, (err, data) => {
+  checkUsername(username, (err, data) => {
+    if (err) {
 
-    db.one(query, [userID, username, data.hash, data.salt, wrapped_master] )
-      .then( (data) => {
-        const returnable = { user_id: data.user_id,
-                             username: data.username,
-                             last_updated: data.last_update}
-                             
-        cb(null, returnable)
+      var query ="insert into ssdb.user (user_id, username, pword_hash_hash, pword_salt, wrapped_master, last_update) values ( $1, $2, $3, $4, $5, now()) returning *";
+      
+      const userID = require('node-uuid').v4()  // generate a new guid for this user
+      
+      pbkdf2.newPassHash(mySecret, (err, data) => {
+        if (err) {
+          console.log(err);
+        } else {
+
+          db.one(query, [userID, username, data.hash, data.salt, wrapped_master] )
+            .then( (data) => {
+              const returnable = { user_id: data.user_id,
+                                   username: data.username,
+                                   last_updated: data.last_update}
+              
+              cb(null, returnable)
+            })
+            .catch( (error) => {
+              console.log("ERROR:", error.message || error); 
+              cb(error)
+            });
+        }
       })
-      .catch( (error) => {
-        console.log("ERROR:", error.message || error); 
-        cb(error)
-      });
+                       
+    } else {
+      cb ("username exists")
+    }
   });
 }
 
@@ -138,7 +172,7 @@ exports.changeUserSecret = (userID, secret, wrapped_master, cb)  => {
 }
 
 
-// checks the pbkdf2 hash of the provided secret for user & gets or creates a session if valid
+// checks the pbkdf2 hash of the provided secret for user & returns user data if valid
 exports.loginUser = (username, secret, cb)  => {
 
   var query ="select user_id, pword_hash_hash, pword_salt from ssdb.user where username = $1";
@@ -150,7 +184,7 @@ exports.loginUser = (username, secret, cb)  => {
           cb(err);
           return;
         }
-        session.sessionToken(data.user_id, cb)
+        cb(null, {user: data.user_id });
       })
     })
     .catch(function (error) {
@@ -158,3 +192,6 @@ exports.loginUser = (username, secret, cb)  => {
       cb(error)
     });
 }
+
+
+

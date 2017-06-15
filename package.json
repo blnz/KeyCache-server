@@ -1,7 +1,9 @@
 {
   "name": "KeyCache-server",
+  "version": "0.1.0",
   "author": "Bill Lindsey <bill@blnz.com>",
-  "description": "KeyCache synchronization server",
+  "description": "KeyCache synchronization server, CRUD database services via REST API",
+  "main": "server.js",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -9,9 +11,20 @@
   },
   "dependencies": {
     "body-parser": "^1.15.2",
+    "config": "^1.26.1",
     "express": "^4.14.0",
+    "jsonwebtoken": "^7.4.1",
     "node-fetch": "^1.6.0",
     "node-uuid": "^1.4.7",
     "pg-promise": "^5.3.2"
+  },
+  "devDependencies": {
+    "chai": "^4.0.2",
+    "chai-http": "^3.0.0",
+    "mocha": "^3.4.2"
+  },
+  "scripts": {
+    "start": "NODE_ENV=dev && node server.js",
+    "test": "sudo -u postgres psql < ./db/initDB.sql && mocha --timeout 100000"
   }
 }

@@ -8,7 +8,7 @@ const config = {
 }
 
 const genHash = (secret, salt, cb) => {
-  console.log("genHash for secret:", secret); 
+
   crypto.pbkdf2(secret, salt, config.iters, config.keylen, config.algo, (err, key) => {
     if (err) {
       cb(err);
@@ -69,5 +69,4 @@ if (require.main == module) {
   test("foobar", "foobar")
   test("foobar", "not-foobar")
   test("better-foobar", "better-foobar")
-
 }

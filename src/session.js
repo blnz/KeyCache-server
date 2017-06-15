@@ -1,14 +1,15 @@
 // the simplest session implementation, ever:
-// an array of pairs: [ user_id, session_token ] 
+// an array of pairs: [ user_id, session_key ] 
 // N.B. session is local to this node instance
+// and is stateful
 
 const crypto = require('crypto');
 
 var sessions = []
 
 // creates a session for the user if it doesn't already exist
-
-exports.sessionToken = (user_id, cb) => {
+exports.sessionKey = (user_id, cb) => {
+  // find it if we have a session for given user_id
   var session = sessions.filter( (elem) => elem[0] == user_id )
   if (session.length == 1) {
     cb(null, session[0][1])
@@ -19,14 +20,14 @@ exports.sessionToken = (user_id, cb) => {
       cb(err);
       return;
     }
-    const token =  buf.toString('hex')
-    sessions.push([user_id, token])
-    cb(null, token)
+    const key =  buf.toString('hex')
+    sessions.push([user_id, key])
+    cb(null, key)
   });
 }
 
-exports.sessionUser = (token) => {
-  const hits = sessions.filter( (elem) => elem[1] == token )
+exports.sessionUser = (key) => {
+  const hits = sessions.filter( (elem) => elem[1] == key )
   if (hits.length == 1) {
     return hits[0][0]
   } else {
@@ -34,8 +35,8 @@ exports.sessionUser = (token) => {
   }
 }
 
-exports.closeSession = (token) => {
-  const userID = exports.sessionUser(token)
+exports.closeSession = (key) => {
+  const userID = exports.sessionUser(key)
   if (userID) {
     sessions = sessions.filter( (entry) => entry[0] != userID )
     return true
