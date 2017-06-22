@@ -25,6 +25,6 @@
   },
   "scripts": {
     "start": "NODE_ENV=dev && node server.js",
-    "test": "sudo -u postgres psql < ./db/initDB.sql && mocha --timeout 100000"
+    "test": "psql --dbname=postgres < ./db/initDB.sql && mocha --timeout 100000"
   }
 }

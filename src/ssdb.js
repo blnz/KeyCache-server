@@ -17,8 +17,6 @@ var cn = {
 var db = pgp(cn);
 
 
-// FIXME: is this style of query safe against sql injection with pg-promise?
-
 exports.createCard = (cardID, userID, cardData, cb) => {
 
   const query = "insert into ssdb.card (card_id, user_id, data_blob) " +
@@ -29,22 +27,44 @@ exports.createCard = (cardID, userID, cardData, cb) => {
       cb(null, {id: data.card_id, version: data.last_update})
     })
     .catch( (error) => {
-      console.log("ERROR: createCard:", error.message || error); 
       cb(error)
     });
 }
 
 
-exports.updateCard = (cardID, userID, lastUpdate, cardData, cb) => {
+exports.addOrUpdateCard = (cardID, userID, lastUpdate, cardData, cb) => {
+
+  exports.getCard(cardID, userID, (err, data) => {
+    if (err) {
+      console.log("got err:", err);
+      exports.createCard(cardID, userID, cardData, cb);
+    } else {
+      console.log("addOrUpdata data:", data)
+      console.log("typeof data.last_update:", typeof data.last_update);
+      if (lastUpdate == data.last_update.toISOString()) {
+        console.log("lastUpdate:", "|" + lastUpdate + "|", " == ", "|" + data.last_update.toISOString() + "|")
+        exports.updateCard(cardID, userID, cardData, cb);
+      } else {
+        console.log("lastUpdate:", "|" + lastUpdate + "|", " != ", "|" + data.last_update.toISOString() + "|")
+        
+        cb(new Error("attempt to update card with mismatch version"))
+      }
+    }
+  });
   
-  const query = "update ssdb.card set data_blob = $1, last_update = now() where card_id = $2 and last_update = $3 and userID = $4  returning *"
+}
+
+
+exports.updateCard = (cardID, userID, cardData, cb) => {
   
-  db.one(query, [cardData, cardID, lastUpdate, userID ] )
+  const query = "update ssdb.card set data_blob = $1, last_update = now() where card_id = $2 and user_id = $3 returning card_id, last_update"
+  
+  db.one(query, [cardData, cardID, userID ] )
     .then( (data) => {
-      cb(null, data)
+      cb(null, {id: data.card_id, version: data.last_update})
     })
     .catch( (error) => {
-      console.log("ERROR: updateCard:", error.message || error); 
+      //      console.log("updateCard error:", error)
       cb(error)
     });
 }
@@ -58,34 +78,32 @@ exports.deleteCard = (cardID, userID, cb) => {
       cb(null)
     })
     .catch( (error) => {
-      console.log("ERROR: deleteCard:", error.message || error); 
+      //      console.log("ERROR: deleteCard:", error.message || error); 
       cb(error)
     });
 }
 
 exports.getCard = (cardID, userID, cb) => {
-  const query = "select card_id, user_id, last_update, data_blob, active from ssdb.card where card_id = $1 and userID = $2"
+  const query = "select card_id, user_id, last_update, data_blob, active from ssdb.card where card_id = $1 and user_id = $2"
   db.one(query, [cardID, userID] )
     .then( (data) => {
       cb(null, data)
     })
     .catch( (error) => {
-      console.log("ERROR: getCard:", error.message || error); 
-      cb(error)
+      cb(new Error(`cannot get ${cardID}`))
     });
 }
 
 // FIXME: pagination limits, maybe?
 exports.listCards = (userID, since, cb) => {
-  since = since || "2016-08-01T18:51:00.765Z"
-  const query = "select card_id, user_id, last_update, data_blob, active from ssdb.card where user_id = $1 and last_update > $2"
+  since = since || "2017-06-01T18:51:00.765Z"
+  const query = "select card_id, user_id, last_update, data_blob, active from ssdb.card where user_id = $1 and last_update > $2 order by last_update asc"
   
   db.any(query, [userID, since])
     .then( (data) => {
       cb(null, data)
     })
     .catch( (error) => {
-      console.log("ERROR: getCard:", error.message || error); 
       cb(error)
     });
 }
@@ -165,7 +183,6 @@ exports.changeUserSecret = (userID, secret, wrapped_master, cb)  => {
         cb(null, data)
       })
       .catch( (error) => {
-        console.log("ERROR:", error.message || error); 
         cb("ERROR:", error.message || error)
       });
   });
@@ -188,7 +205,6 @@ exports.loginUser = (username, secret, cb)  => {
       })
     })
     .catch(function (error) {
-      console.log("login ERROR:", error.message || error); 
       cb(error)
     });
 }
