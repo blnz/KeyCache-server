@@ -3,46 +3,49 @@ const path = require('path')
 , session = require('./src/session')
 , ssdb = require('./src/ssdb')
 , bodyParser = require('body-parser')
-, jwt = require('jsonwebtoken')
+, jwt = require('jsonwebtoken');
 
-const PORT = 8000
+const PORT = 8000;
 
-var app = express()
+var app = express();
 
-app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.urlencoded({ extended: false }));
 
-app.use(bodyParser.json())
+app.use(bodyParser.json());
+
+
+// athorization is done via json web tokens
 
 // decode jwt token if we find one, and store in the req as "session"
 app.use( (req, resp, next) => {
 
-  if (req.headers &&
-      req.headers.authorization &&
-      req.headers.authorization.split(' ')[0] === 'JWT') {
+    if (req.headers &&
+        req.headers.authorization &&
+        req.headers.authorization.split(' ')[0] === 'JWT') {
 
-    jwt.verify(req.headers.authorization.split(' ')[1],
-               'SERVER_SECRET',
-               (err, decode) => {
-                 if (err) {
-                   //                   console.log("CANNOT DECODE")
-                   req.session = undefined;
-                 } else {
-                   //                   console.log("DID DECODE:", decode);
-                   req.session = decode;
-                 }
-                 next();
-               }
-              );
-  } else {
-    req.session = undefined;
-    next()
-  }
+        jwt.verify(req.headers.authorization.split(' ')[1],
+                   'SERVER_SECRET',
+                   (err, decode) => {
+                       if (err) {
+                           req.session = undefined;
+                       } else {
+                           req.session = decode;
+                       }
+                       next();
+                   }
+                  );
+    } else {
+        req.session = undefined;
+        next();
+    }
 });
 
 app.use(express.static('public'));
 
+// a default route for '/'
+
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html')
+    res.sendFile(__dirname + '/public/index.html');
 });
 
 // express middleware. Do we have a valid session?
@@ -50,153 +53,167 @@ app.get('/', (req, res) => {
 
 const isAuthenticatedUser = (req, resp, next) => {
 
-  if ( req.session ) {
-    next();
-  } else {
-    resp.status(401).send('"not authenticated"')
-  }
+    if ( req.session ) {
+        next();
+    } else {
+        resp.status(401).json("not authenticated");
+    }
 }
 
 
 // create and return a session token if successful
 app.post('/api/authenticate', (req, resp) => {
 
-  ssdb.loginUser(req.body.username, req.body.secret, (err, data) => {
-    if (err) {
-      resp.status(401).send('"not authenticated"')
-      return
-    }
+    ssdb.loginUser(req.body.username, req.body.secret)
+        .then( (data) => {
+            resp.json({token: jwt.sign(data.jwt, 'SERVER_SECRET', { expiresIn: '30m'}),
+                       refreshToken: data.refreshToken
+                      });
+        })
+        .catch( (err) => {
+            resp.status(401).json("not authenticated");
+        });
+});
 
-    resp.json({token: jwt.sign(data, 'SERVER_SECRET')})
+// create and return a session token if successful
+app.post('/api/refreshToken', (req, resp) => {
 
-  })
-})
+    ssdb.refreshUser(req.body.userID, req.body.refreshToken)
+        .then( (data) => {
+            resp.json({token: jwt.sign(data.jwt, 'SERVER_SECRET', { expiresIn: '30m'}),
+                       refreshToken: data.refreshToken
+                      });
+        })
+        .catch( (err) => {
+            resp.status(401).json("not allowed");
+        });
+});
 
 // N.B. vulnerable to DDOS
 // create a new user
 app.post('/api/register', (req, resp) => {
-
-  resp.setHeader('Content-Type', 'application/json');
-  ssdb.registerUser(req.body.username,
-                    req.body.secret,
-                    JSON.stringify(req.body.wrapped_master), (err, data) => {
-                      if (err) {
-                        console.log(err)
-                        resp.status(400).send('"cannot register"')
-                        return
-                      }
-                      resp.json(data)
-                    })
-})
+    
+    ssdb.registerUser(req.body.username,
+                      req.body.secret,
+                      JSON.stringify(req.body.wrapped_master))
+        .then( (data) => {
+            resp.json(data);
+        })
+        .catch( (err) => {
+            resp.status(400).json("cannot register");
+        });
+});
 
 // change the user's secret(s)
 app.post('/api/changeSecret', isAuthenticatedUser, (req, resp) => {
 
-  ssdb.changeUserSecret(req.session.user,
-                        req.body.secret,
-                        JSON.stringify(req.body.wrapped_master),
-                        (err, data) => {
-                          if (err) {
-                            console.log(err)
-                            resp.status(400).send("cannot change secret")
-                            return
-                          }
-                          resp.json('true')
-                        })
-})
-         
+    ssdb.changeUserSecret(req.session.userID,
+                          req.session.userName,
+                          req.body.oldSecret,
+                          req.body.newSecret,
+                          JSON.stringify(req.body.wrapped_master))
+        .then( (data ) => {
+            resp.json('true');
+        })
+        .catch( (err) => {
+            resp.status(400).json("cannot change secret");
+        });
+});
+
 app.post('/api/logout', isAuthenticatedUser, (req, resp) => {
-  
-  if ( session.closeSession(req.session.token) ) {
-    resp.json("true")
-  } else {
-    // this shouldn't happen
-    resp.status(403).send('"cannot logout"')
-  }
-})
-         
+    
+    if ( session.closeSession(req.query.refreshToken) ) {
+        resp.json("true");
+    } else {
+        resp.status(403).json("cannot logout");
+    }
+});
+
+
+// card routes ...
+
 // get a single card record
 app.get('/api/u/:user/c/:card', isAuthenticatedUser, (req, resp) => {
-
-  //  console.log("req.session:", req.session);
-  // if authorized user is card's owner
-  if (req.session.user === req.params.user) {
-    ssdb.getCard(req.params.card, req.params.user, (err, data) => {
-      if (err) {
-        resp.status(404).send('"not found"')
-        return
-      }
-      resp.json(data)
-    })
-  } else {
-    resp.status(403).send('"not authorized"')
-  }
-})
+    
+    // if authorized user is card's owner
+    if (req.session.userID === req.params.user) {
+        ssdb.getCard(req.params.card, req.params.user)
+            .then( (data) => {
+                resp.json(data);
+            })
+            .catch( (err) => {
+                resp.status(404).json("not found");
+            });
+    } else {
+        resp.status(403).json("not authorized");
+    }
+});
 
 // delete a card
 app.delete('/api/u/:user/c/:card', isAuthenticatedUser, (req, resp) => {
 
-  if (req.session.user === req.params.user) {
-    ssdb.deleteCard(req.params.card, req.params.user, (err, data) => {
-      if (err) {
-        resp.status(404).send("not found")
-        return
-      }
-      resp.json(data)
-    })
-  } else {
-    resp.status(403).send("not authorized")
-  }
+    if (req.session.userID === req.params.user) {
+        ssdb.deleteCard(req.params.card, req.params.user, (err, data) => {
+            if (err) {
+                resp.status(404).json("not found");
+            } else {
+                resp.json(data);
+            }
+        });
+    } else {
+        resp.status(403).json("not authorized");
+    }
 });
 
 // creates or updates a card record
 app.put('/api/u/:user/c/:card', isAuthenticatedUser, function(req, resp) {
 
-  if (req.session.user === req.params.user) {
-    //    console.log("PUT -- req.body:", req.body)
-    ssdb.addOrUpdateCard(req.params.card, req.params.user,
-                         req.body.version,
-                         JSON.stringify(req.body.encrypted),
-                         (err, data) => {
-                           //                      console.log("PUT -- err:", err, "data:", data)
-                           if (err) {
-                             // console.log(err)
-                             resp.status(400).send('"failed"')
-                             return
-                           }
-                           resp.json(data)
-                         })
-  } else {
-    resp.status(403).send('"not authorized"')
-  }
+    if (req.session.userID === req.params.user) {
+
+        ssdb.addOrUpdateCard(req.params.user,
+                             req.params.card,
+                             req.body.version,
+                             JSON.stringify(req.body.encrypted))
+            .then( (data) => {
+                resp.json(data);
+            })
+            .catch( (err) => {
+                resp.status(400).json('failed');
+            });
+    } else {
+        resp.status(403).json("not authorized");
+    }
+
 });
 
 
 // return a list of cards for that user
 app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, resp) {
-  const { since = null } = req.query
-  //  console.log("since:", since, "query:", req.query)
-  if (req.session.user === req.params.user) {
-    ssdb.listCards(req.params.user, since, (err, data) => {
-      if (err) {
-        console.log(err)
-        resp.status(400).send('"failed"')
-        return
-      }
-      const list = data.map( card => { return { id: card.card_id,
-                                                version: card.last_update,
-                                                encrypted: JSON.parse(card.data_blob) } })
-      resp.json(list)
-    })
-  } else {
-    resp.status(403).send('"not authorized"')
-  }
+    const { since = null, skip = 0, count = 999 } = req.query;
+    //  console.log("since:", since, "query:", req.query)
+    if (req.session.userID === req.params.user) {
+        ssdb.listCards(req.params.user, since, (err, data) => {
+            if (err) {
+                console.log(err);
+                resp.status(400).json("failed");
+            } else {
+                
+                const list = data.map( card => { return { id: card.card_id,
+                                                          version: card.last_update,
+                                                          encrypted: JSON.parse(card.data_blob) };
+                                               });
+                resp.json(list);
+            }
+        });
+    } else {
+        resp.status(403).json("not authorized");
+    }
 });
 
 
 if (!module.parent) {
-  app.listen(PORT);
-  console.log("syncserver listening on port %d", PORT);
+    app.listen(PORT);
+    console.log("syncserver listening on port %d", PORT);
 }
 
 // for testing with chai-http:

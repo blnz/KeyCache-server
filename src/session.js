@@ -9,12 +9,6 @@ var sessions = []
 
 // creates a session for the user if it doesn't already exist
 exports.sessionKey = (user_id, cb) => {
-  // find it if we have a session for given user_id
-  var session = sessions.filter( (elem) => elem[0] == user_id )
-  if (session.length == 1) {
-    cb(null, session[0][1])
-    return
-  }
   crypto.randomBytes(16, (err, buf) => {
     if (err) {
       cb(err);
@@ -25,6 +19,17 @@ exports.sessionKey = (user_id, cb) => {
     cb(null, key)
   });
 }
+
+exports.checkSessionKey = (user_id, key, cb) => {
+  
+  var session = sessions.filter( (elem) => elem[1] == key )
+  if (session.length > 0 ) {
+    cb(null, user_id)
+  } else {
+    cb(new Error("not found"))
+  }
+}
+
 
 exports.sessionUser = (key) => {
   const hits = sessions.filter( (elem) => elem[1] == key )
