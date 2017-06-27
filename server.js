@@ -120,6 +120,42 @@ app.post('/api/changeSecret', isAuthenticatedUser, (req, resp) => {
         });
 });
 
+// create and return a session token if successful
+app.post('/api/refreshToken', (req, resp) => {
+
+    ssdb.refreshUser(req.body.userID, req.body.refreshToken)
+        .then( (data) => {
+            resp.json({token: jwt.sign(data.jwt, 'SERVER_SECRET', { expiresIn: '30m'}),
+                       refreshToken: data.refreshToken
+                      });
+        })
+        .catch( (err) => {
+            resp.status(401).json("not allowed");
+        });
+});
+
+// create and return a session token if successful
+app.get('/api/u/:user/key', isAuthenticatedUser, (req, resp) => {
+
+    if (req.session.userID === req.params.user) {
+        ssdb.userData(req.params.user)
+            .then( (data) => {
+
+                resp.json({
+                    wrapped_master: data.wrapped_master,
+                    last_update: data.last_update
+                });
+            })
+            .catch( (err) => {
+                resp.status(401).json("not allowed");
+            });
+    } else {
+        resp.status(403).json("not authorized");
+    }
+    
+});
+
+
 app.post('/api/logout', isAuthenticatedUser, (req, resp) => {
     
     if ( session.closeSession(req.query.refreshToken) ) {
@@ -190,11 +226,10 @@ app.put('/api/u/:user/c/:card', isAuthenticatedUser, function(req, resp) {
 // return a list of cards for that user
 app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, resp) {
     const { since = null, skip = 0, count = 999 } = req.query;
-    //  console.log("since:", since, "query:", req.query)
+
     if (req.session.userID === req.params.user) {
         ssdb.listCards(req.params.user, since, (err, data) => {
             if (err) {
-                console.log(err);
                 resp.status(400).json("failed");
             } else {
                 

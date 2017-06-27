@@ -279,16 +279,16 @@ describe (`GET /api/u/:user/c/bad_id`, () => {
 
 
 describe ('POST /api/refreshToken', () => {
-    it('it should logout', (done) => {
+    it('it should get a new loginToken', (done) => {
         chai.request(server)
             .post('/api/refreshToken')
-            .set("Authorization", `JWT ${loginToken}`)
             .send({refreshToken: refreshToken,
                    userID: userID})
             .end((err, res) => {
                 res.should.have.status(200);
                 res.body.should.have.own.property('token');
                 res.body.should.have.own.property('refreshToken');
+                loginToken = res.body.token;
                 done();
             });
     });
@@ -310,4 +310,54 @@ describe ('POST /api/logout', () => {
     });
 });
 
+describe ('POST /api/refreshToken', () => {
+    it('it should fail to get a new loginToken', (done) => {
+        chai.request(server)
+            .post('/api/refreshToken')
+            .send({refreshToken: refreshToken,
+                   userID: userID})
+            .end((err, res) => {
+                res.should.have.status(401);
+                done();
+            });
+    });
+});
+
+
+
+
+describe ('POST /api/authenticate', () => {
+    it('it should successfully authenticate via post to /api/authenticate', (done) => {
+
+        chai.request(server)
+            .post('/api/authenticate')
+            .send({"username": username,
+                   "secret": secret})
+            .end((err, res) => {
+
+                res.should.have.status(200);
+                loginToken = res.body.token;
+                refreshToken = res.body.refreshToken;
+                done();
+            });
+    });
+    
+});
+
+
+describe (`GET /api/u/:user/key`, () => {
+    it(`it should get the wrapped master key for user`, (done) => {
+
+        chai.request(server)
+            .get(`/api/u/${userID}/key`)
+            .set("Authorization", `JWT ${loginToken}`)
+            .end((err, res) => {
+                res.should.have.status(200);
+                res.body.should.have.own.property('wrapped_master');
+                res.body.should.have.own.property('last_update');
+                done();
+            });
+    });
+    
+});
 

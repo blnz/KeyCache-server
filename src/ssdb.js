@@ -186,6 +186,22 @@ exports.registerUser = (username, secret, wrapped_master)  => {
     });
 }
 
+exports.userData = (userID) => {
+    
+    var query ="select wrapped_master, username, last_update from ssdb.user where user_id = $1";
+    
+    return new Promise( (resolve, reject) => {
+        db.one(query, [ userID ] )
+            .then( (data) => {
+                resolve(data);
+            })
+            .catch( (error) => {
+                console.log(error);
+                reject(error);
+            });
+    });
+    
+};
 
 exports.changeUserSecret = (userID, userName, oldsecret, newsecret, wrapped_master)  => {
 
