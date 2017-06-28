@@ -217,11 +217,13 @@ describe ('GET /api/u/:user/c', () => {
             .set("Authorization", `JWT ${loginToken}`)
             .end((err, res) => {
                 res.should.have.status(200);
-                res.body.should.be.an('array');
-                res.body.should.have.length(1);
-                res.body[0].should.have.own.property('version');
-                res.body[0].should.have.own.property('encrypted');
-                res.body[0].encrypted.should.eql(card1.encrypted);
+                res.body.should.have.own.property('meta');
+                res.body.should.have.own.property('cards');
+                res.body.cards.should.be.an('array');
+                res.body.cards.should.have.length(1);
+                res.body.cards[0].should.have.own.property('version');
+                res.body.cards[0].should.have.own.property('encrypted');
+                res.body.cards[0].encrypted.should.eql(card1.encrypted);
                 done();
             });
     });
@@ -237,12 +239,13 @@ describe ('GET /api/u/:user/c', () => {
             .query({since: '1970-01-01T00:00:00.000Z'})
             .end((err, res) => {
                 res.should.have.status(200);
-                res.body.should.be.an('array');
-                res.body.should.have.length(1);
-                res.body[0].should.have.own.property('version');
-                res.body[0].should.have.own.property('encrypted');
-                res.body[0].encrypted.should.eql(card1.encrypted);
-
+                res.body.should.have.own.property('meta');
+                res.body.should.have.own.property('cards');
+                res.body.cards.should.be.an('array');
+                res.body.cards.should.have.length(1);
+                res.body.cards[0].should.have.own.property('version');
+                res.body.cards[0].should.have.own.property('encrypted');
+                res.body.cards[0].encrypted.should.eql(card1.encrypted);
                 done();
             });
     });
@@ -261,7 +264,6 @@ describe (`GET /api/u/:user/c/${card1.id}`, () => {
     });
     
 });
-
 
 
 describe (`GET /api/u/:user/c/bad_id`, () => {

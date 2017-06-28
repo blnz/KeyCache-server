@@ -24,7 +24,7 @@
     "mocha": "^3.4.2"
   },
   "scripts": {
-    "start": "NODE_ENV=dev && node server.js",
+    "start": "NODE_ENV=dev node server.js",
     "test": "psql --dbname=postgres < ./db/initDB.sql && mocha --timeout 100000"
   }
 }

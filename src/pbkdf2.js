@@ -20,7 +20,7 @@ const genHash = (secret, salt, cb) => {
 
 // create some new random salt, use it to hash the secret
 // result is an object with hash and salt as hex strings
-//
+
 exports.newPassHash = (secret, cb) => {
   if (!secret) {
     cb("no secret to hash");

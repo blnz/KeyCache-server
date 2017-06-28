@@ -1,18 +1,13 @@
 const pbkdf2 = require('./pbkdf2')
-, session = require('./session');
+, session = require('./session')
+, config = require('../config');
 
 // postgres
 var pgp = require('pg-promise')({
     // Initialization Options 
 })
 
-var cn = {
-    host: process.env.PGHOST || 'localhost',
-    port: 5432,
-    database: process.env.PGDATABASE || 'postgres',
-    user: process.env.PGUSER || 'ssdb',
-    password: process.env.PGPASSWORD || 'ssdb'
-}
+var cn = config.dbConnection;
 
 var db = pgp(cn);
 
@@ -111,17 +106,19 @@ exports.getCard = (cardID, userID) => {
     });
 }
 
-exports.listCards = (userID, since, cb, skip = 0, count = 999) => {
+exports.listCards = (userID, since = "2017-06-01T18:51:00.765Z", skip = 0, count = 999) => {
     since = since || "2017-06-01T18:51:00.765Z";
     const query = "select card_id, user_id, last_update, data_blob, active from ssdb.card where user_id = $1 and last_update > $2 order by last_update asc LIMIT $3 OFFSET $4";
-    
-    db.any(query, [userID, since, count, skip])
-        .then( (data) => {
-            cb(null, data);
-        })
-        .catch( (error) => {
-            cb(error);
-        });
+
+    return new Promise( (resolve, reject) => {
+        db.any(query, [userID, since, count, skip])
+            .then( (data) => {
+                resolve(data);
+            })
+            .catch( (error) => {
+                reject(error);
+            });
+    });
 }
 
 

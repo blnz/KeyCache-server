@@ -3,9 +3,10 @@ const path = require('path')
 , session = require('./src/session')
 , ssdb = require('./src/ssdb')
 , bodyParser = require('body-parser')
-, jwt = require('jsonwebtoken');
+, jwt = require('jsonwebtoken')
+, config = require('config')
 
-const PORT = 8000;
+const PORT = config.httpPort;
 
 var app = express();
 
@@ -14,7 +15,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 
-// athorization is done via json web tokens
+// authorization is done via json web tokens
 
 // decode jwt token if we find one, and store in the req as "session"
 app.use( (req, resp, next) => {
@@ -228,18 +229,20 @@ app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, resp) {
     const { since = null, skip = 0, count = 999 } = req.query;
 
     if (req.session.userID === req.params.user) {
-        ssdb.listCards(req.params.user, since, (err, data) => {
-            if (err) {
-                resp.status(400).json("failed");
-            } else {
+        ssdb.listCards(req.params.user, since, skip, count)
+            .then( (data) => {
                 
-                const list = data.map( card => { return { id: card.card_id,
-                                                          version: card.last_update,
-                                                          encrypted: JSON.parse(card.data_blob) };
-                                               });
-                resp.json(list);
-            }
-        });
+                const cards = data.map( card => { return { id: card.card_id,
+                                                           version: card.last_update,
+                                                           encrypted: JSON.parse(card.data_blob) };
+                                                });
+                resp.json({ meta: {}, cards: cards} );
+            })
+        
+            .catch( (err) => {
+                resp.status(400).json("failed");
+            });
+
     } else {
         resp.status(403).json("not authorized");
     }
@@ -248,8 +251,11 @@ app.get('/api/u/:user/c',  isAuthenticatedUser, function(req, resp) {
 
 if (!module.parent) {
     app.listen(PORT);
+
     console.log("syncserver listening on port %d", PORT);
 }
+
+console.log("env:", process.env.NODE_ENV);
 
 // for testing with chai-http:
 module.exports = app;
